@@ -49,7 +49,8 @@ def render_all(site):
            "office_users": site["office_users"], "smb_machines": smb, "ftp_machines": ftp,
            "serial_tcp_machines": serial_tcp, "cnc_ip": config.cnc_server_ip(site),
            "pasv_min": FTP_PASSIVE_PORTS[0], "pasv_max": FTP_PASSIVE_PORTS[1],
-           "hotspot_subnet": config.HOTSPOT_SUBNET, "server_name": config.office_server_name()}
+           "hotspot_subnet": config.HOTSPOT_SUBNET, "server_name": config.office_server_name(),
+           "companions": site.get("companions", [])}
 
     def tpl(name):
         return _env.get_template(name).render(ctx)

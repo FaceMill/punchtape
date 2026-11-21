@@ -1,0 +1,102 @@
+# Chatter (https://github.com/toolpath/chatter) on a PunchTape Pi.
+#
+# Chatter watches machines; PunchTape serves files to them. They do different jobs on the
+# same two networks, so they run side by side -- but Chatter's own docker-compose.yml does
+# NOT work on a PunchTape Pi unchanged. This file is that compose, corrected. See
+# docs/COMPANIONS.md for the reasoning and the install steps.
+#
+# What changed, and why:
+#
+#   1. network_mode: host, on every service. PunchTape sets "iptables": false in
+#      /etc/docker/daemon.json, so Docker does no NAT, no masquerading and no port
+#      publishing; net.ipv4.ip_forward is 0 and the firewall's forward chain is
+#      policy drop. A bridge network therefore has no route off the bridge: Chatter
+#      could not reach the machines, the internet, or office PCs.
+#
+#   2. Service names became 127.0.0.1. Host networking has no compose DNS, so
+#      "http://victoriametrics:8428" no longer resolves.
+#
+#   3. The three services with no login bind to 127.0.0.1 only. On host networking an
+#      unset bind address means every interface -- including the CNC side. The firewall
+#      would drop that traffic anyway, but these should not be listening there at all.
+#
+#   4. ports: removed. It does nothing under host networking (and nothing at all with
+#      Docker's iptables off). Office access to 3001 comes from the firewall instead:
+#         sudo docker exec punchtape-admin python -m punchtape.cli \
+#              companion --add chatter --port 3001 --note "machine monitor"
+#
+#   5. platform: linux/arm/v7 is uncommented. FANUC ships FOCAS for 32-bit ARM but not
+#      64-bit ARM -- the same reason PunchTape's own focas-bridge is a 32-bit container.
+#      Drop this line on an x86-64 host.
+#
+# Start it from this folder:   docker compose -f chatter.yml up -d
+# Chatter keeps its own data in its own named volumes; PunchTape never touches them.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  chatterbox:
+    image: ghcr.io/toolpath/chatter:latest
+    platform: linux/arm/v7     # Raspberry Pi; remove on x86-64
+    container_name: chatterbox
+    network_mode: host
+    environment:
+      VICTORIA_METRICS_URL: "http://127.0.0.1:8428"
+      VMALERT_URL: "http://127.0.0.1:8880"
+      # The alert intake has no login. Keep it on the loopback: only vmalert calls it.
+      ALERT_HOST: "127.0.0.1"
+      ALERT_RULES_DIR: "/app/alert-rules"
+    volumes:
+      - chatterbox-data:/app/data
+      - chatter-alert-rules:/app/alert-rules
+    restart: unless-stopped
+    logging: *logging
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.155.0
+    container_name: chatter-victoriametrics
+    network_mode: host
+    command:
+      # No login: loopback only, never the CNC or office interface.
+      - "-httpListenAddr=127.0.0.1:8428"
+      - "-storageDataPath=/storage"
+      - "-retentionPeriod=1y"
+      - "-memory.allowedPercent=30"
+    volumes:
+      - victoriametrics-data:/storage
+    restart: unless-stopped
+    logging: *logging
+
+  vmalert:
+    image: victoriametrics/vmalert:v1.155.0
+    container_name: chatter-vmalert
+    network_mode: host
+    command:
+      # No login: loopback only.
+      - "-httpListenAddr=127.0.0.1:8880"
+      - "-rule=/etc/vmalert/rules.yml"
+      - "-rule=/etc/vmalert-chatter/*.yml"
+      - "-configCheckInterval=30s"
+      - "-evaluationInterval=15s"
+      - "-datasource.url=http://127.0.0.1:8428"
+      - "-remoteWrite.url=http://127.0.0.1:8428"
+      - "-remoteRead.url=http://127.0.0.1:8428"
+      - "-notifier.url=http://127.0.0.1:3002"
+    volumes:
+      # Both paths come from a Chatter checkout; see docs/COMPANIONS.md.
+      - ./chatter-src/vmalert:/etc/vmalert:ro
+      - chatter-alert-rules:/etc/vmalert-chatter:ro
+    depends_on:
+      - victoriametrics
+      - chatterbox
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  chatterbox-data:
+  victoriametrics-data:
+  chatter-alert-rules:

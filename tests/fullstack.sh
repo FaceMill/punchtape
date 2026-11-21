@@ -10,6 +10,7 @@ set -uo pipefail
 
 PROJECT=$(cd "$(dirname "$0")/.." && pwd)
 HERE="$PROJECT/tests"
+DIND_VOL=punchtape-fullstack-dind   # inner /var/lib/docker; named so clean() can remove it
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS + 1)); printf '  PASS %s\n' "$1"; }
 bad() { FAIL=$((FAIL + 1)); printf '  FAIL %s\n' "$1"; }
@@ -19,7 +20,11 @@ port(){ docker exec "$1" nc -z -w 3 "$2" "$3"; }
 pi()  { docker exec pi sh -c "$1"; }
 
 clean() {
-    docker rm -f pi office-pc haas1 haas2 rogue fanuc1 devserver >/dev/null 2>&1
+    # -v reaps anonymous volumes; DIND_VOL is named, so it needs removing by hand. Without
+    # this the dind image's VOLUME /var/lib/docker leaves ~600MB of inner image store behind
+    # on every run.
+    docker rm -f -v pi office-pc haas1 haas2 rogue fanuc1 devserver >/dev/null 2>&1
+    docker volume rm -f "$DIND_VOL" >/dev/null 2>&1
     docker network rm pi-office pi-cnc pi-cnc2 >/dev/null 2>&1  # haas2/pi-cnc2: left over from older versions
 }
 if [ "${1:-}" = "--clean" ]; then clean; echo "cleaned"; exit 0; fi
@@ -42,6 +47,7 @@ clean
 docker network create --subnet 10.20.0.0/16 --gateway 10.20.0.1 pi-office >/dev/null
 docker network create --subnet 192.168.50.0/24 --gateway 192.168.50.254 pi-cnc >/dev/null
 docker run -d --name pi --hostname cnc-files --privileged --network pi-office --ip 10.20.0.10 \
+    -v "$DIND_VOL":/var/lib/docker \
     docker:27-dind --iptables=false --ip6tables=false --ip-forward=false >/dev/null
 docker network connect --ip 192.168.50.1 pi-cnc pi
 for _ in $(seq 1 30); do pi 'docker info' >/dev/null 2>&1 && break; sleep 2; done

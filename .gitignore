@@ -13,3 +13,6 @@ __pycache__/
 .DS_Store
 .vscode/
 .ruff_cache/
+
+# A companion app's own source, cloned beside its compose file (docs/COMPANIONS.md)
+companions/*-src/

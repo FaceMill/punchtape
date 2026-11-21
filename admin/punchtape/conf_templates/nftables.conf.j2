@@ -16,6 +16,15 @@ table inet filter {
 
 		# Office: SSH, web (443 redirects to the admin page on 8443, Cockpit 9090), SMB3
 		iifname "{{ office.interface }}" ip saddr { {{ office.allowed_subnets | join(', ') }} } tcp dport { 22, 80, 443, 445, 8443, 9090 } accept
+{% if companions %}
+
+		# Companion apps on this Pi, office side only (docs/COMPANIONS.md). PunchTape does
+		# not run these; it only opens the port. The CNC side is untouched, and nothing is
+		# routed between the two networks (forward chain below).
+{% for c in companions %}
+		iifname "{{ office.interface }}" ip saddr { {{ office.allowed_subnets | join(', ') }} } tcp dport {{ c.port }} accept  # {{ c.name }}
+{% endfor %}
+{% endif %}
 {% if office.get('hotspot') %}
 
 		# Setup hotspot: the Pi is the access point. DHCP (requests come from 0.0.0.0) and DNS

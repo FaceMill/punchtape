@@ -81,6 +81,42 @@ FOCAS_DEFAULTS = {
 # this many days there are removed for good. 0 = never empty automatically.
 RECYCLE_DEFAULTS = {"retention_days": 60}
 
+# --- companion apps ---------------------------------------------------------
+# Another application on the same Pi (a machine monitor, say) that office PCs must reach.
+# PunchTape does not run or manage it; it only opens its port on the office side of the
+# firewall, which is otherwise default-drop and rewritten on every render. See
+# docs/COMPANIONS.md.
+COMPANION_NAME_RE = re.compile(r"[a-z][a-z0-9-]{0,23}")
+COMPANIONS_MAX = 8
+
+# Ports PunchTape itself listens on. A companion cannot have one of these: it could not
+# bind it anyway, and an allow rule for it would quietly widen PunchTape's own exposure.
+RESERVED_PORTS = {
+    21: "FTP (CNC side)",
+    22: "SSH",
+    80: "HTTP (redirects to the admin page)",
+    139: "NetBIOS session service",
+    443: "HTTPS (redirects to the admin page)",
+    445: "SMB",
+    8090: "the admin app behind Caddy",
+    8095: "the FOCAS bridge",
+    8443: "the admin page",
+    9000: "Portainer (optional)",
+    9090: "Cockpit",
+    9443: "Portainer (optional)",
+}
+RESERVED_PORT_RANGES = [(30000, 30049, "FTP passive data ports")]
+
+
+def reserved_port_reason(port):
+    """Why this port is not available to a companion app, or None if it is free."""
+    if port in RESERVED_PORTS:
+        return RESERVED_PORTS[port]
+    for lo, hi, what in RESERVED_PORT_RANGES:
+        if lo <= port <= hi:
+            return what
+    return None
+
 # Alert emails about health problems (Settings page). Off until configured.
 ALERT_DEFAULTS = {
     "enabled": False,
@@ -175,6 +211,7 @@ def default_site(office_subnet, office_if="eth0", cnc_if="eth1"):
              "ip": "192.168.50.13", "password": gen_password()},
         ],
         "office_users": [],
+        "companions": [],
         "recycle": dict(RECYCLE_DEFAULTS),
         "alerts": dict(ALERT_DEFAULTS),
         "appearance": {},
@@ -194,6 +231,7 @@ def load():
         if "focas" in m:
             m["focas"] = normalize_focas(m["focas"])
     site["office"].setdefault("hotspot", False)
+    site.setdefault("companions", [])            # configs from before companion apps
     site["recycle"] = {**RECYCLE_DEFAULTS, **site.get("recycle", {})}  # configs from before these settings
     site["alerts"] = {**ALERT_DEFAULTS, **site.get("alerts", {})}
     from . import appearance
@@ -407,6 +445,31 @@ def validate(site):
         names.add(u["name"])
         if not re.fullmatch(r"[0-9A-F]{32}", u["nt_hash"]):
             raise ValueError(f"User '{u['name']}': invalid password hash")
+
+    companions = site.setdefault("companions", [])
+    if len(companions) > COMPANIONS_MAX:
+        raise ValueError(f"Companion apps: at most {COMPANIONS_MAX}")
+    seen_ports, seen_names = set(), set()
+    for c in companions:
+        if not isinstance(c.get("name"), str) or not COMPANION_NAME_RE.fullmatch(c["name"]):
+            raise ValueError(f"Companion app name '{c.get('name')}': 1-24 lowercase letters, "
+                             "digits or '-', starting with a letter")
+        if c["name"] in seen_names:
+            raise ValueError(f"Companion app '{c['name']}' is listed twice")
+        seen_names.add(c["name"])
+        raw = c.get("port")
+        if not _number(raw) or int(raw) != raw or not 1 <= int(raw) <= 65535:
+            raise ValueError(f"Companion app '{c['name']}': port must be a whole number from 1 to 65535")
+        port = int(raw)
+        reason = reserved_port_reason(port)
+        if reason:
+            raise ValueError(f"Companion app '{c['name']}': port {port} is used by PunchTape for {reason}")
+        if port in seen_ports:
+            raise ValueError(f"Companion app '{c['name']}': port {port} is already used by another companion app")
+        seen_ports.add(port)
+        c["port"] = port
+        if not isinstance(c.get("note", ""), str) or len(c.get("note", "")) > LABEL_MAX:
+            raise ValueError(f"Companion app '{c['name']}': note is up to {LABEL_MAX} characters")
 
 
 # --- admin login ------------------------------------------------------------

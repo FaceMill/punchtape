@@ -4,6 +4,7 @@
     python -m punchtape.cli render
     python -m punchtape.cli set-admin-password [--generate]
     python -m punchtape.cli office-mode --hotspot SSID [--password PW] | --client [--office-subnet CIDR]
+    python -m punchtape.cli companion --add NAME --port PORT [--note TEXT] | --remove NAME | --list
 """
 import argparse
 import getpass
@@ -77,6 +78,48 @@ def cmd_office_mode(args):
     return 0
 
 
+def cmd_companion(args):
+    """Open (or close) an office-side port for another app running on this Pi, and
+    re-render the firewall. PunchTape does not start, stop or update that app; the port
+    is all it manages. See docs/COMPANIONS.md."""
+    site = config.load()
+    companions = site["companions"]
+    if args.list:
+        if not companions:
+            print("No companion apps. Add one with: punchtape companion --add NAME --port PORT")
+        for c in companions:
+            print(f"  {c['name']:<24} tcp/{c['port']}" + (f"  {c['note']}" if c.get("note") else ""))
+        return 0
+    if args.remove:
+        if not any(c["name"] == args.remove for c in companions):
+            print(f"No companion app called '{args.remove}'.", file=sys.stderr)
+            return 1
+        site["companions"] = [c for c in companions if c["name"] != args.remove]
+        what = f"Closed the office-side port for '{args.remove}'."
+    else:
+        if args.port is None:
+            print("--add needs --port.", file=sys.stderr)
+            return 1
+        entry = {"name": args.add, "port": args.port, "note": args.note or ""}
+        # Re-adding a name replaces it, so changing a port is one command.
+        site["companions"] = [c for c in companions if c["name"] != args.add] + [entry]
+        what = f"Office PCs can reach '{args.add}' on tcp/{args.port}."
+    try:
+        config.save(site)
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        return 1
+    # apply_site, not cmd_render: the rule has to reach the running firewall, not just
+    # generated/nftables.conf. It checks the ruleset with `nft -c` before loading it.
+    try:
+        system.apply_site(site)
+    except Exception as e:
+        print(f"Saved, but applying the firewall failed: {e}", file=sys.stderr)
+        return 1
+    print(what)
+    return 0
+
+
 def cmd_set_admin_password(args):
     if args.generate:
         pw = config.gen_password(14)
@@ -113,6 +156,14 @@ def main():
     p = sub.add_parser("set-admin-password")
     p.add_argument("--generate", action="store_true", help="set a random password and print it")
     p.set_defaults(func=cmd_set_admin_password)
+    p = sub.add_parser("companion", help="open an office-side port for another app on this Pi")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--add", metavar="NAME", help="name for the app, e.g. chatter")
+    g.add_argument("--remove", metavar="NAME")
+    g.add_argument("--list", action="store_true")
+    p.add_argument("--port", type=int, help="the TCP port it listens on")
+    p.add_argument("--note", help="what it is, shown by --list")
+    p.set_defaults(func=cmd_companion)
     p = sub.add_parser("office-mode")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--hotspot", metavar="SSID")

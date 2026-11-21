@@ -103,6 +103,7 @@ Hurco · Fadal · Brother · Mitsubishi M70/M80.
 - [Testing](#testing)
 - [Repository layout](#repository-layout)
 - [Troubleshooting](#troubleshooting)
+- [Running another app on the same Pi](#running-another-app-on-the-same-pi)
 - [Known limitations](#known-limitations)
 - [Credits and licences](#credits-and-licences)
 
@@ -324,7 +325,9 @@ host/             install.sh, update.sh, reset-admin-password.sh, setup-network.
                    setup-hotspot.sh, firewall boot stub and fallback,
                    backup.sh / restore.sh / setup-backup.sh, health.py, systemd/ timers
 docs/             INSTALL.md, RUNBOOK.md (shop staff), cnc-client-setup.md (per control),
-                   SERIAL-PORTS.md (adapters, cables), img/ (screenshots used here)
+                   SERIAL-PORTS.md (adapters, cables), COMPANIONS.md (another app on the
+                   same Pi), img/ (screenshots used here)
+companions/       ready-made compose files for apps that run alongside (chatter.yml)
 tests/            all test suites and the simulated-Pi full-stack test
 tools/            make_logo.py (rewrites docs/img/logo.svg and logo.png)
 docker-compose.yml
@@ -348,6 +351,26 @@ At runtime the Pi also has `config/` (site configuration and secrets), `generate
 | Locked out after a network change | Wait 2 minutes: unconfirmed changes revert automatically. |
 | Admin page down | `sudo docker compose ps` and `sudo docker compose logs punchtape-admin caddy` in `/opt/punchtape`. |
 | Firewall | `sudo nft list ruleset`. The rules are in `generated/nftables.conf`; never edit them by hand — they're regenerated from the admin page. |
+
+## Running another app on the same Pi
+
+PunchTape moves programs; it does not monitor machines (no OEE, no spindle-load charts).
+A monitoring tool such as [Chatter](https://github.com/toolpath/chatter) complements it,
+and the PunchTape Pi is the natural host — it is already the only box on both networks.
+
+Register the app and its port, and the generated firewall opens it on the office side
+only, leaving the CNC side and the no-routing guarantee untouched:
+
+```bash
+sudo docker exec punchtape-admin python -m punchtape.cli \
+     companion --add chatter --port 3001 --note "machine monitor"
+```
+
+Because Docker's own NAT is switched off on the Pi (the host firewall is the only one),
+a companion must use host networking — most third-party compose files need adapting.
+[docs/COMPANIONS.md](docs/COMPANIONS.md) covers that, the FOCAS connection limit shared
+with a monitor, and backups; [`companions/chatter.yml`](companions/chatter.yml) is a
+ready-made compose file for Chatter.
 
 ## Known limitations
 
