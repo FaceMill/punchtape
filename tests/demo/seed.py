@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash
 from punchtape import config, system
 from punchtape.ntlm import nt_hash
 
-site = config.default_site("10.20.0.0/16", "eth9", "eth8")
+site = config.default_site("10.20.0.0/16", "eth0", "eth1")
 site["machines"][0]["label"] = "Haas VF-2 (Bay 1)"
 site["machines"][1]["label"] = "Haas VF-4 (Bay 2)"
 site["machines"][2]["label"] = "Siemens 840D Mill"

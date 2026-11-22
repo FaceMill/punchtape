@@ -35,7 +35,7 @@ class H(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0))) if method == "POST" else b""
         time.sleep(0.3)
         if u.path == "/status":
-            return self.reply(200, {"mode": "EDIT", "run": "RESET", "emergency": "", "alarm": False,
+            return self.reply(200, {"mode": "MEM", "run": "START", "emergency": "", "alarm": False,
                                     "running": {"name": STATE["active"], "number": 1000},
                                     "cnc": {"model": "0i-M", "series": "D4F1", "version": "30.0", "axes": "4"},
                                     "alarms": [], "message": "CHECK COOLANT LEVEL BEFORE SHIFT"})

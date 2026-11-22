@@ -57,7 +57,7 @@ network. This server sits between the two:
 > DNC have not run on real controls yet. Do the bench test in
 > [docs/INSTALL.md](docs/INSTALL.md) before connecting production machines.
 
-![The Status page: a health card, every machine with its connection type, address, network state and current activity, recent DNC activity, services, interface addresses and free disk](docs/img/status.png)
+![The Status page: a health card, every machine with its connection type, address, network state and current activity — including run state, mode and active program for the FANUC on FOCAS — recent DNC activity, services, interface addresses and free disk](docs/img/status.png)
 
 *The Status page. The screenshots here are of a demo site with one machine of each
 supported kind; the machine names, addresses and programs in them are made up.*
@@ -150,7 +150,7 @@ to the server below.*
 
 | Page | What you can do |
 |---|---|
-| **Status** | A **Health** card (services, disk, backups, serial ports, and the Pi itself: temperature, power, SSD wear, clock, UPS). Every machine: on the network (ping) or serial adapter present, connected / transferring now. Interface addresses, free disk, recent DNC activity. |
+| **Status** | A **Health** card (services, disk, backups, serial ports, and the Pi itself: temperature, power, SSD wear, clock, UPS). Every machine: on the network (ping) or serial adapter present, connected / transferring now, and for FOCAS controls the run state, mode and active program. Interface addresses, free disk, recent DNC activity. |
 | **Machines** | Add, edit, remove machines. Each machine page has its files (upload, view, download, delete to a recycle folder), the setup sheet for its control, and — for serial and FOCAS machines — live transfer status and controls. |
 | **Office users** | Logins for the office SMB3 share (`\\<pi>\CNC`); users log in as `CNC-FILES\<user>`. Passwords are stored only as hashes. |
 | **Network** | Office side: DHCP or static, allowed office subnets (firewall). Changes **roll back automatically after 2 minutes** unless confirmed, so a mistake can't lock you out. CNC side: the Pi's address and every machine's IP. SMB workgroup. |
@@ -284,6 +284,8 @@ program, and alarms**, read straight from the control.
 A background check keeps this current, so pages open without waiting on the machines.
 Settings → **Machine status** sets how often: every 30 seconds by default, and FOCAS
 controls every 60. `GET /api/machine-status` returns the same thing as JSON.
+
+![The Machine status settings: a tick box for checking machines in the background, how often to check every machine, and how often to ask FOCAS controls](docs/img/status-settings.png)
 
 Three rules keep the poll off a busy control, because a FANUC has only a few FOCAS
 connections and the limit is the control's, not the client's:
