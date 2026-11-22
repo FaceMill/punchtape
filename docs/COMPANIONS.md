@@ -93,14 +93,22 @@ only the office subnets you registered reach it.
 
 This is the one real *functional* conflict, and no amount of firewall configuration fixes it.
 
-PunchTape's `focas-bridge` opens TCP 8193 to a FANUC for program transfer. A monitoring
-app polls the same port on the same control, continuously. FANUC controls allow only a
+PunchTape's `focas-bridge` opens TCP 8193 to a FANUC for program transfer, and — since
+the status poll was added — for the dashboard's run state, mode and active program too.
+A monitoring app polls the same port on the same control, continuously. FANUC controls allow only a
 small number of simultaneous FOCAS connections, and the limit is per control, not per
 client. Exceed it and connections fail — on either side, and intermittently.
 
+PunchTape keeps its own use modest: everything it does to one control is serialised
+behind a per-control lock, a status poll is skipped rather than queued while a transfer
+holds that lock, and repeated failures back off. None of that constrains a second
+application — it has its own connections.
+
 If you run both against the same FANUC:
 
-* Give the monitor the slowest poll interval you can live with.
+* Give the monitor the slowest poll interval you can live with, and consider turning
+  PunchTape's own FOCAS polling down (Settings → Machine status), or off for that
+  control on its machine page, so you are not asking the same questions twice.
 * Expect `Send to CNC` / `Read from CNC` to occasionally need a retry while a poll holds a
   handle.
 * If the control is a 16i/18i/21i, be more careful still; the older Ethernet boards have
@@ -116,6 +124,11 @@ contend with it at all.
 plus file transfer *to* machines' own FTP servers, where PunchTape is a file server *for*
 machines. No port collides — Chatter wants 3001, 3002, 8428 and 8880, none of which
 PunchTape uses.
+
+There is overlap worth knowing about: PunchTape now shows FOCAS run state, mode and the
+active program on its own dashboard, so for FANUC controls the two display some of the
+same facts. PunchTape keeps no history, so Chatter still adds the charts, utilisation and
+part counts — but if you run both, turn one side's FOCAS polling down.
 
 Note what it cannot cover, so you know what PunchTape is still doing: Chatter has no SMB
 of any version and no serial DNC, so it cannot talk to a Haas Classic over a network

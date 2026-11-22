@@ -105,6 +105,10 @@
       </div>
       <label><input type="checkbox" name="focas_replace" {{ 'checked' if focas.replace }}>
         Sending replaces a program with the same O-number by default</label>
+      <label><input type="checkbox" name="focas_poll" {{ 'checked' if focas.poll }}>
+        Show this control's live status on the dashboard</label>
+      <div class="hint">Turn this off if the control runs short of FOCAS connections &mdash; transfers
+        keep working either way.</div>
       <div class="hint">The Pi connects to the CNC; no login is needed. The CNC needs FOCAS2/Ethernet enabled (port 8193 by default).</div>
     </div>
 

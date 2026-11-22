@@ -99,7 +99,8 @@ Hurco · Fadal · Brother · Mitsubishi M70/M80.
 - [Day-to-day use](#day-to-day-use)
 - [Updating](#updating)
 - [Backups](#backups)
-- [Monitoring and alerts](#monitoring-and-alerts)
+- [Machine status](#machine-status)
+- [Server health and alerts](#server-health-and-alerts)
 - [Testing](#testing)
 - [Repository layout](#repository-layout)
 - [Troubleshooting](#troubleshooting)
@@ -274,7 +275,33 @@ the current one) or everything after a hardware failure. See
 [disaster recovery](docs/INSTALL.md#17-disaster-recovery-the-ssd-or-pi-died). The full-stack
 test rehearses the recovery every run.
 
-## Monitoring and alerts
+## Machine status
+
+The dashboard shows, for every machine, whether it answers and whether it is logged in to
+its share or FTP folder. FANUC controls on FOCAS also show **run state, mode, the active
+program, and alarms**, read straight from the control.
+
+A background check keeps this current, so pages open without waiting on the machines.
+Settings → **Machine status** sets how often: every 30 seconds by default, and FOCAS
+controls every 60. `GET /api/machine-status` returns the same thing as JSON.
+
+Three rules keep the poll off a busy control, because a FANUC has only a few FOCAS
+connections and the limit is the control's, not the client's:
+
+- **A transfer always wins.** Sending or reading a program takes the control's lock; the
+  status check is skipped for that round rather than queued behind it.
+- **Failures back off**, doubling up to 8× the interval, so a machine that is switched off
+  is not dialled every minute — each attempt costs the full FOCAS timeout.
+- **A single control can be left out**, on its machine page, and still transfer normally.
+
+The check is not gated on ping: controls that ignore ICMP but answer FOCAS still report.
+
+This is current state only — nothing is stored, so there are no charts, history, part
+counts or OEE. For those, run a monitoring tool beside PunchTape
+([docs/COMPANIONS.md](docs/COMPANIONS.md)); it draws on the same FOCAS connection budget,
+so give it a slower interval or turn PunchTape's own polling down.
+
+## Server health and alerts
 
 `host/health.py` (every 5 minutes) reports the Pi's temperature, under-voltage and
 throttling, SSD wear and SMART status, clock sync and UPS state. punchtape-admin combines this

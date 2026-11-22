@@ -74,11 +74,21 @@ FOCAS_DEFAULTS = {
     "port": 8193,
     "timeout": 10,           # seconds to wait for the CNC to answer
     "replace": False,        # Send overwrites a program with the same O-number
+    "poll": True,            # include this control in the status poll (off: transfers only)
 }
 
 
 # Deleted files (Samba and the admin page) go to .recycle folders; files older than
 # this many days there are removed for good. 0 = never empty automatically.
+# Background polling of machine state (admin/punchtape/machine_status.py). The FOCAS
+# interval is separate and normally longer: a control has few FOCAS connections to spare,
+# and a monitoring tool beside PunchTape spends from the same budget.
+STATUS_DEFAULTS = {
+    "enabled": True,
+    "interval": 30,          # seconds between reachability sweeps
+    "focas_interval": 60,    # seconds between FOCAS status polls, per control
+}
+
 RECYCLE_DEFAULTS = {"retention_days": 60}
 
 # --- companion apps ---------------------------------------------------------
@@ -212,6 +222,7 @@ def default_site(office_subnet, office_if="eth0", cnc_if="eth1"):
         ],
         "office_users": [],
         "companions": [],
+        "status_poll": dict(STATUS_DEFAULTS),
         "recycle": dict(RECYCLE_DEFAULTS),
         "alerts": dict(ALERT_DEFAULTS),
         "appearance": {},
@@ -232,6 +243,7 @@ def load():
             m["focas"] = normalize_focas(m["focas"])
     site["office"].setdefault("hotspot", False)
     site.setdefault("companions", [])            # configs from before companion apps
+    site["status_poll"] = {**STATUS_DEFAULTS, **site.get("status_poll", {})}
     site["recycle"] = {**RECYCLE_DEFAULTS, **site.get("recycle", {})}  # configs from before these settings
     site["alerts"] = {**ALERT_DEFAULTS, **site.get("alerts", {})}
     from . import appearance
@@ -445,6 +457,19 @@ def validate(site):
         names.add(u["name"])
         if not re.fullmatch(r"[0-9A-F]{32}", u["nt_hash"]):
             raise ValueError(f"User '{u['name']}': invalid password hash")
+
+    sp = site.setdefault("status_poll", dict(STATUS_DEFAULTS))
+    for key, lo, hi in (("interval", 5, 3600), ("focas_interval", 10, 3600)):
+        v = sp.get(key)
+        if not _number(v) or int(v) != v or not lo <= int(v) <= hi:
+            raise ValueError(f"Machine status polling: {key.replace('_', ' ')} must be a whole "
+                             f"number of seconds from {lo} to {hi}")
+        sp[key] = int(v)
+    if sp["focas_interval"] < sp["interval"]:
+        # A FOCAS poll only happens during a sweep, so a shorter interval would be a lie.
+        raise ValueError("Machine status polling: the FOCAS interval cannot be shorter "
+                         "than the reachability interval")
+    sp["enabled"] = bool(sp.get("enabled", True))
 
     companions = site.setdefault("companions", [])
     if len(companions) > COMPANIONS_MAX:

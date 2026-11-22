@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 
 from . import config, system
 from .config import MACHINE_TYPES, PROTOCOLS, SERIAL_CHOICES, SERIAL_DEFAULTS
-from . import appearance, dnc_files, events, focas_client, logo, monitor, recycle
+from . import appearance, dnc_files, events, focas_client, logo, machine_status, monitor, recycle
 from .serial_dnc import manager as dnc
 from .network import CONFIRM_SECONDS, HOTSPOT_CONFIRM_SECONDS, office_change
 from .ntlm import nt_hash
@@ -166,6 +166,26 @@ def account():
 
 # --- dashboard --------------------------------------------------------------
 
+def machine_state(site):
+    """Per-machine state from the poller, keyed by machine name.
+
+    The cache is empty for the first few seconds after a restart, and polling can be
+    switched off entirely, so fall back to a single sweep rather than show every machine
+    as unreachable.
+    """
+    state = machine_status.poller.all()
+    if not site["machines"]:
+        return {}
+    if not state or all(s.get("stale") for s in state.values()):
+        try:
+            state = machine_status.poller.poll_once(site)
+        except Exception:
+            machine_status.log.exception("Inline machine status sweep failed")
+    return state
+
+
+# --- dashboard --------------------------------------------------------------
+
 @bp.get("/")
 @login_required
 def dashboard():
@@ -176,7 +196,7 @@ def dashboard():
                 for m in config.machines_by_protocol(site, "serial") if m["serial"]["transport"] == "usb"}
     return render_template(
         "dashboard.html", site=site,
-        reachable=system.ping_many([m["ip"] for m in site["machines"] if m["ip"]]),
+        status=machine_state(site),
         connected=system.smb_sessions() | system.ftp_sessions(),
         serial_status=serial_status, adapters=adapters, events=recent,
         health=monitor.issues(), host=monitor.host_snapshot(), backup=monitor.backup_status(),
@@ -225,7 +245,8 @@ def machine_from_form(existing=None):
 
     if m["type"] in MACHINE_TYPES and config.protocol(m) == "focas":
         m["focas"] = {"port": _form_number("focas_port", 8193), "timeout": _form_number("focas_timeout", 10),
-                      "replace": bool(request.form.get("focas_replace"))}
+                      "replace": bool(request.form.get("focas_replace")),
+                      "poll": bool(request.form.get("focas_poll"))}
     else:
         m.pop("focas", None)
     return m
@@ -840,6 +861,35 @@ def settings_alerts_test():
         flash(f"Sending failed: {e}", "error")
     else:
         flash(f"Test email sent to {', '.join(a['recipients'])}.", "ok")
+    return redirect(url_for("web.settings"))
+
+
+@bp.get("/api/machine-status")
+@login_required
+def api_machine_status():
+    """Current state of every machine, for the dashboard to refresh without a reload."""
+    return jsonify(machine_state(config.load()))
+
+
+@bp.post("/settings/status-poll")
+@login_required
+def settings_status_poll():
+    with config.lock:
+        site = config.load()
+        try:
+            site["status_poll"] = {
+                "enabled": bool(request.form.get("enabled")),
+                "interval": int(request.form.get("interval", "")),
+                "focas_interval": int(request.form.get("focas_interval", "")),
+            }
+            config.save(site)
+        except ValueError as e:
+            flash(str(e) if "polling" in str(e) else "Enter whole numbers of seconds.", "error")
+            return redirect(url_for("web.settings"))
+    sp = site["status_poll"]
+    machine_status.poller.refresh_soon()
+    flash(f"Machine status checked every {sp['interval']}s, FOCAS controls every "
+          f"{sp['focas_interval']}s." if sp["enabled"] else "Machine status polling is off.", "ok")
     return redirect(url_for("web.settings"))
 
 

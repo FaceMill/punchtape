@@ -101,12 +101,29 @@ is in `config/events.db`.
 
 | Page         | What you can do                                                          |
 |--------------|---------------------------------------------------------------------------|
-| Status       | Per machine: on the network (ping), currently connected to its share. Service health, interface addresses, free disk space |
+| Status       | Per machine: on the network (ping), currently connected to its share, and for FOCAS controls the live run state, mode and active program. All of it from a background poll, so the page does not wait on the machines. Service health, interface addresses, free disk space |
 | Machines     | Add, edit, or remove machines (name, control type, IP, password, serial line settings). Each machine page lists its files and has a printable **setup sheet** with the exact values and steps for that control type. Serial machines get **Send to machine** / **Receive from machine** buttons with live progress |
 | Office users | Add or remove SMB3 users and reset their passwords (stored only as hashes) |
 | Network      | Office: DHCP/static, IP, gateway, DNS, allowed subnets, with **automatic 2-minute rollback** unless confirmed. CNC: Pi address and machine IPs (renumber together). Workgroup |
 | Logs         | Last 300 lines from each container (failed CNC logins show up here)       |
 | Account      | Change the admin password                                                 |
+
+**Machine status polling.** One thread keeps a cache of per-machine state (reachability
+for all, FOCAS run state/mode/active program for FANUC controls on Ethernet); pages and
+`GET /api/machine-status` read it. Intervals are set on the Settings page, 30s and 60s by
+default. Deliberate design points, all because a FANUC's FOCAS connection limit belongs to
+the control and is shared with any monitoring tool on the network:
+
+- everything the app does to one control is serialised behind a per-control lock;
+- a status poll takes that lock without waiting and is skipped, never queued, so a
+  program transfer always wins;
+- repeated failures back off to at most 8x the interval, since each failed attempt costs
+  the full FOCAS timeout;
+- polling is not gated on ping, because controls that ignore ICMP still answer FOCAS;
+- a single control can be excluded and still transfer normally.
+
+Current state only -- nothing is stored. History, charts and OEE belong to a monitoring
+tool running beside PunchTape (`docs/COMPANIONS.md`).
 
 Safety features:
 - Every change is validated before it's applied: no duplicate IPs or names, machine IPs

@@ -129,6 +129,32 @@
 </div>
 
 <div class="card">
+  <h2>Machine status</h2>
+  <p class="muted">The dashboard shows whether each machine answers, and for FANUC controls on
+    FOCAS also the run state, mode and active program. A background check keeps this up to date
+    so pages open without waiting for the machines.</p>
+  <form method="post" action="{{ url_for('web.settings_status_poll') }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label><input type="checkbox" name="enabled" {{ 'checked' if site.status_poll.enabled }}>
+      Check machines in the background</label>
+    <div class="actions" style="margin-top:10px">
+      <label for="interval">Every</label>
+      <input type="text" id="interval" name="interval" value="{{ site.status_poll.interval }}"
+             inputmode="numeric" style="max-width:80px"> seconds
+      <label for="focas_interval" style="margin-left:14px">FOCAS controls every</label>
+      <input type="text" id="focas_interval" name="focas_interval" value="{{ site.status_poll.focas_interval }}"
+             inputmode="numeric" style="max-width:80px"> seconds
+      <button>Save</button>
+    </div>
+    <div class="hint">A FANUC allows only a few FOCAS connections at once, and the limit belongs to
+      the control, so asking it more often leaves less room for sending and reading programs &mdash;
+      and for any monitoring software you run beside PunchTape. 60 seconds or more is a good
+      starting point; a single control can be left out on its machine page. A transfer always wins:
+      the check is skipped while one is running, never queued behind it.</div>
+  </form>
+</div>
+
+<div class="card">
   <h2>Recycle bin</h2>
   <p class="muted">Files deleted from the office share, a machine's share, or this admin site are moved to hidden
     <span class="mono">.recycle</span> folders (one for the office share and one per machine) instead of being deleted.</p>

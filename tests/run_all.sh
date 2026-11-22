@@ -69,6 +69,7 @@ suite "health checks + alert emails" "$ADMIN" "$INIT && timeout 300 python /test
 suite "appearance + logo"        "$ADMIN" "$INIT && timeout 300 python /tests/test_appearance.py"
 suite "setup hotspot"            "$ADMIN" "$INIT && timeout 300 python /tests/test_hotspot.py"
 suite "companion apps"           "$ADMIN" "$INIT && timeout 300 python /tests/test_companions.py"
+suite "machine status polling"   "$ADMIN" "$INIT && timeout 300 python /tests/test_machine_status.py"
 suite "office server name"       "$ADMIN" "$INIT && timeout 300 python /tests/test_server_name.py"
 mkdir -p "$SCRATCH/proj" && cp -R "$PROJECT/host" "$SCRATCH/proj/" && cp -R "$T" "$SCRATCH/proj/tests"
 suite "backup / restore drill"   "-v $SCRATCH/proj:/project:ro debian:bookworm-slim" \

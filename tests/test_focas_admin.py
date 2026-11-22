@@ -119,10 +119,19 @@ def check(cond, msg):
 
 post("/login", username="admin", password="correct-horse-1")
 r = post("/machines/new", name="fanuc5", label="FANUC 0i-MF FOCAS", type="fanuc-focas", ip="192.168.50.31",
-         password="", focas_port="8193", focas_timeout="5")
+         password="", focas_port="8193", focas_timeout="5", focas_poll="on")
 check(any(cat == "ok" for cat, _ in flashes(r)), f"FOCAS machine added: {flashes(r)}")
 m = config.find_machine(config.load(), "fanuc5")
-check(m["focas"] == {"port": 8193, "timeout": 5, "replace": False} and "serial" not in m, "FOCAS settings stored")
+check(m["focas"] == {"port": 8193, "timeout": 5, "replace": False, "poll": True} and "serial" not in m,
+      "FOCAS settings stored")
+# The status poll is an ordinary checkbox: clearing it leaves transfers working.
+r = post("/machines/fanuc5/edit", name="fanuc5", label="FANUC 0i-MF FOCAS", type="fanuc-focas",
+         ip="192.168.50.31", password="", focas_port="8193", focas_timeout="5")
+check(config.find_machine(config.load(), "fanuc5")["focas"]["poll"] is False,
+      "status polling can be turned off for one control")
+r = post("/machines/fanuc5/edit", name="fanuc5", label="FANUC 0i-MF FOCAS", type="fanuc-focas",
+         ip="192.168.50.31", password="", focas_port="8193", focas_timeout="5", focas_poll="on")
+check(config.find_machine(config.load(), "fanuc5")["focas"]["poll"] is True, "and back on")
 nft = open("/app/generated/nftables.conf").read()
 check("192.168.50.31" not in nft, "no inbound firewall opening for a FOCAS machine (Pi connects out)")
 for bad, why in [(dict(focas_port="0"), "port 0"), (dict(focas_timeout="99"), "timeout 99"), (dict(ip=""), "missing IP")]:

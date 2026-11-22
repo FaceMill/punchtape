@@ -6,6 +6,7 @@ The bridge runs in its own container (32-bit ARM on a Pi: FANUC's library has no
 import json
 import os
 import re
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -13,6 +14,22 @@ import urllib.request
 from . import config
 
 BRIDGE_URL = os.environ.get("FOCAS_BRIDGE_URL", "http://127.0.0.1:8095")
+
+# One lock per control. A FANUC allows only a few FOCAS connections at once and the limit
+# is the control's, not the client's, so everything this app does to one control is
+# serialised: two browser tabs, or a transfer and the status poller, cannot collide.
+# The bridge is a ThreadingHTTPServer and will happily run both at once otherwise.
+# The poller takes this without blocking and skips its turn; see machine_status.
+LOCK_WAIT = 60
+_locks = {}
+_locks_guard = threading.Lock()
+
+
+def machine_lock(name):
+    """Reentrant on purpose: the poller holds it and then calls status(), which takes it
+    again on the same thread. A different thread is still kept out."""
+    with _locks_guard:
+        return _locks.setdefault(name, threading.RLock())
 
 
 class FocasError(Exception):
@@ -56,6 +73,16 @@ def same_program(name, key):
 
 
 def _call(machine, method, path, body=None, **params):
+    lock = machine_lock(machine["name"])
+    if not lock.acquire(timeout=LOCK_WAIT):
+        raise FocasError("The control is busy with another transfer; try again in a moment.")
+    try:
+        return _call_locked(machine, method, path, body, **params)
+    finally:
+        lock.release()
+
+
+def _call_locked(machine, method, path, body=None, **params):
     f = machine["focas"]
     query = urllib.parse.urlencode({"ip": machine["ip"], "port": f["port"], "timeout": f["timeout"], **params})
     req = urllib.request.Request(f"{BRIDGE_URL}{path}?{query}", data=body, method=method,
