@@ -1,0 +1,49 @@
+# The same gate maintainers run locally with tests/run_all.sh, run on every push.
+# Nothing here touches a real network, firewall or machine: the admin app runs with
+# PUNCHTAPE_DRY_RUN=1 and the full-stack job builds its own simulated Pi.
+name: tests
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly, so pip-audit and the rebuilt base images surface new CVEs without
+    # waiting for someone to push. See the Trivy notes in PLAN.md.
+    - cron: '0 6 * * 1'
+
+jobs:
+  suite:
+    name: test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # FANUC ships no 64-bit ARM FOCAS library, so the bridge is built and tested
+      # for 32-bit ARM, x86-64 and 32-bit x86. The non-native ones need emulation.
+      - name: Enable cross-architecture builds
+        uses: docker/setup-qemu-action@v3
+
+      - name: Run the suite
+        run: ./tests/run_all.sh
+
+  fullstack:
+    name: full stack (simulated Pi)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable cross-architecture builds
+        uses: docker/setup-qemu-action@v3
+
+      # Docker-in-Docker with two networks, the real compose stack and the real
+      # generated firewall. Needs a privileged container, which runners allow.
+      - name: Run the full-stack test
+        run: |
+          ./tests/fullstack.sh --clean
+          out=$(./tests/fullstack.sh 2>&1); echo "$out"
+          grep -q "^Full stack:.* 0 failed" <<<"$out"

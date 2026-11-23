@@ -169,8 +169,10 @@ and reached over an SSH tunnel (see `docker-compose.yml`).
 
 ## Testing
 
-Everything below runs in Docker on a Mac; **nothing has run on a real Pi or a real CNC
-yet.** Run it all again with `tests/run_all.sh --fullstack` (see `tests/README.md`).
+Everything below runs in Docker on a Mac. **The stack has not been installed on a real Pi,
+and no real CNC control has connected to it yet.** The one thing confirmed on real hardware
+is the Pi 5 page-size problem (see Open items). Run it all again with
+`tests/run_all.sh --fullstack` (see `tests/README.md`).
 
 | Suite | What it covers |
 |---|---|
@@ -250,7 +252,7 @@ Result: **no HIGH or CRITICAL finding with an available fix** in any of our imag
 
 Rebuild images regularly (`sudo ./host/build-images.sh`) and rescan:
 ```bash
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL local/punchtape-admin:1.0
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL local/punchtape-admin
 ```
 
 ## Hardware (bill of materials)
@@ -305,8 +307,10 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image
   only because the CNC network is isolated, with no gateway and no routing.
 - **Serial pin-outs and parameters** vary by control. Use a null modem with the
   CNC-side jumpers (see `docs/SERIAL-PORTS.md`), and test each cable and its settings on the bench first.
-- **serial-dnc repo**: its engine now lives in `admin/punchtape/serial_dnc.py` and `dnc_files.py`.
-  Fixes made in one place need copying to the other, or the standalone repo can be retired.
+- **serial-dnc repo**: PunchTape is now the engine's only home (`admin/punchtape/serial_dnc.py`
+  and `dnc_files.py`), and it has grown features the standalone version never had. Archive that
+  repository so the two cannot diverge; until that is done, a fix made in one place has to be
+  copied to the other by hand.
 
 - **Windows XP PCU 50** is itself an unsupported OS. The isolated switch, with no
   gateway and no routing, is what protects it. Don't connect it to anything else.

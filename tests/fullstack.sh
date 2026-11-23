@@ -52,7 +52,7 @@ docker run -d --name pi --hostname cnc-files --privileged --network pi-office --
 docker network connect --ip 192.168.50.1 pi-cnc pi
 for _ in $(seq 1 30); do pi 'docker info' >/dev/null 2>&1 && break; sleep 2; done
 pi 'apk add -q nftables restic bash python3 iproute2 curl >/dev/null'   # before the firewall: it cuts the simulation's DNS
-docker save local/punchtape-admin:1.0 local/punchtape-samba:1.0 local/punchtape-ftp:1.0 local/punchtape-focas:1.0 caddy:2.11.7 | docker exec -i pi docker load >/dev/null
+docker save local/punchtape-admin local/punchtape-samba local/punchtape-ftp local/punchtape-focas caddy:2.11.7 | docker exec -i pi docker load >/dev/null
 pi 'mkdir -p /opt/punchtape'
 tar -C "$PROJECT" --exclude=.vscode --exclude=tests --exclude=config --exclude=generated --exclude=data -cf - . | docker exec -i pi tar -C /opt/punchtape -xf -
 

@@ -120,7 +120,7 @@ chmod 0700 config generated
 ./host/build-images.sh   # not "docker compose build": see the comment in that script
 # The FOCAS library must load on this host (a 32-bit ARM container needs a kernel with
 # 32-bit support: a Pi has it, some other ARM servers don't). Only FOCAS depends on it.
-if docker run --rm --platform "$FOCAS_PLATFORM" local/punchtape-focas:1.0 python -c "import focas; focas.lib()"; then
+if docker run --rm --platform "$FOCAS_PLATFORM" local/punchtape-focas python -c "import focas; focas.lib()"; then
     echo "FOCAS library loads ($FOCAS_PLATFORM)."
 else
     echo "WARNING: the FOCAS library doesn't load on this host ($FOCAS_PLATFORM). FANUC FOCAS machines" >&2

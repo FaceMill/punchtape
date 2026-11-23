@@ -7,7 +7,7 @@
 # disabled on the Pi, so the default build bridge has no internet access.
 x-samba: &samba
   build: {context: ./samba, network: host}
-  image: local/punchtape-samba:1.0
+  image: local/punchtape-samba
   network_mode: host
   restart: unless-stopped
   env_file: .env
@@ -35,7 +35,7 @@ services:
 
   ftp-cnc:
     build: {context: ./ftp, network: host}
-    image: local/punchtape-ftp:1.0
+    image: local/punchtape-ftp
     container_name: ftp-cnc
     network_mode: host
     restart: unless-stopped
@@ -52,7 +52,7 @@ services:
   # library's licence.
   focas-bridge:
     build: {context: ./focas, network: host}
-    image: local/punchtape-focas:1.0
+    image: local/punchtape-focas
     platform: ${FOCAS_PLATFORM:-linux/arm/v7}
     container_name: focas-bridge
     network_mode: host
@@ -63,7 +63,7 @@ services:
 
   punchtape-admin:
     build: {context: ./admin, network: host}
-    image: local/punchtape-admin:1.0
+    image: local/punchtape-admin
     container_name: punchtape-admin
     network_mode: host
     restart: unless-stopped
