@@ -120,7 +120,13 @@ office side, several CNC ports) are set in `.env` (`OFFICE_IF`, `CNC_IF`).
 ```bash
 sudo apt install -y git
 sudo git clone https://github.com/<owner>/punchtape.git /opt/punchtape   # this repository's URL
+cd /opt/punchtape
+sudo git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"  # the newest release
 ```
+
+The clone lands on `main`, which is where work in progress goes; that last line moves it to
+the newest release. From then on `host/update.sh` keeps it on releases (see
+[14. Maintenance](#14-maintenance)).
 
 (Alternatively, copy the folder from your computer: `scp -r punchtape <user>@<pi>:` then
 `sudo mv ~/punchtape /opt/punchtape`.)
@@ -329,12 +335,18 @@ ssh -L 9443:127.0.0.1:9443 <user>@<pi>      # then open https://localhost:9443
 **Update** (when no machine is transferring; the services restart, about a minute):
 ```bash
 cd /opt/punchtape
-sudo ./host/update.sh
+./host/update.sh --list      # the releases, and the one this Pi is on - write it down
+sudo ./host/update.sh        # move to the newest release
 ```
-It pulls the latest code, rebuilds the images, regenerates the server configs and firewall from
-your settings, and restarts everything. Settings, users, passwords and programs are kept. Run it
-every month or two even with no code changes, to pick up Debian security fixes in the images.
-The OS updates itself.
+It checks out the newest release, rebuilds the images, regenerates the server configs and
+firewall from your settings, and restarts everything. Settings, users, passwords and programs
+are kept. Run it every month or two even with no code changes, to pick up Debian security fixes
+in the images. The OS updates itself.
+
+Name a version to go somewhere else: `sudo ./host/update.sh v0.9` for a particular release,
+which is also how you go back if one misbehaves, or `sudo ./host/update.sh main` to follow the
+branch on a bench Pi. `--dry-run` says what it would do without doing it. If an update fails
+before it has applied anything, it puts the code back and leaves the running services alone.
 
 **Back up:** see [15. Backups](#15-backups). For staff, print [RUNBOOK.md](RUNBOOK.md).
 

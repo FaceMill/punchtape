@@ -25,6 +25,7 @@ tests/fullstack.sh --clean     # remove the simulated Pi
 | `test_monitor.py` | Health checks (temperature, power, SSD, clock, UPS, backups, disk), Status-page Health card, alert emails against a fake mail server |
 | `test_appearance.py` | Colour themes, accent colour, logo upload (PNG/JPEG only, SVG and oversized refused), public logo URL headers |
 | `test_backup.sh` | Backup/restore drill with the real scripts and restic: back up, wipe, restore, compare every file/owner/mode |
+| `test_update.sh` | `host/update.sh` against throwaway git repositories: picks the newest release, version order, going back, and the refusals (local edits, unknown version, no root) |
 | `test_review_fixes.py` | One regression check per fix from the security/correctness review |
 | `fuzz_render.py` | Random and hostile configs; accepted ones must pass `nft -c` and `testparm` |
 | `test_browser.py` | Chromium (Playwright): pages, JavaScript, upload/delete |

@@ -42,7 +42,7 @@ ruff_out=$(docker run --rm -v "$PROJECT":/src:ro python:3.12-slim sh -c \
     'pip -q install ruff==0.6.9 2>/dev/null; cd /src && ruff check --no-cache --select E9,F,B006,B008,PLE --output-format concise admin/punchtape focas tests' 2>&1)
 grep -q "All checks passed" <<<"$ruff_out" && record "ruff (Python errors)" "PASS" || { echo "$ruff_out" | tail -5; record "ruff (Python errors)" "FAIL"; }
 docker run --rm -v "$PROJECT":/src:ro koalaman/shellcheck:stable -S warning /src/host/install.sh /src/host/setup-network.sh /src/host/setup-hotspot.sh /src/host/reset-admin-password.sh /src/host/update.sh \
-    /src/host/backup.sh /src/host/restore.sh /src/host/setup-backup.sh /src/tests/test_backup.sh \
+    /src/host/backup.sh /src/host/restore.sh /src/host/setup-backup.sh /src/tests/test_backup.sh /src/tests/test_update.sh \
     /src/samba/entrypoint.sh /src/ftp/entrypoint.sh /src/tests/run_all.sh /src/tests/fullstack.sh \
     && record "shellcheck" "PASS" || record "shellcheck" "FAIL"
 docker run --rm --cap-add NET_ADMIN -v "$PROJECT/host":/h:ro local/punchtape-admin:1.0 nft -c -f /h/nftables-fallback.conf \
@@ -75,6 +75,8 @@ mkdir -p "$SCRATCH/proj" && cp -R "$PROJECT/host" "$SCRATCH/proj/" && cp -R "$T"
 suite "backup / restore drill"   "-v $SCRATCH/proj:/project:ro debian:bookworm-slim" \
     "apt-get -qq update >/dev/null && apt-get -qq install -y restic python3 >/dev/null 2>&1 && bash /project/tests/test_backup.sh"
 suite "Pi 5 kernel switch (4K pages)" "-v $SCRATCH/proj:/project:ro debian:trixie-slim" "bash /project/tests/test_pi_kernel.sh"
+suite "update to a release"      "-v $SCRATCH/proj:/project:ro debian:bookworm-slim" \
+    "apt-get -qq update >/dev/null && apt-get -qq install -y git >/dev/null 2>&1 && bash /project/tests/test_update.sh"
 for v in bookworm trixie; do
     suite "network setup (NetworkManager, $v)" "--privileged -v $SCRATCH/proj:/project:ro debian:$v" "bash /project/tests/test_setup_network.sh"
 done

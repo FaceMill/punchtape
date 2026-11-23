@@ -252,8 +252,21 @@ using its setup sheet ([docs/cnc-client-setup.md](docs/cnc-client-setup.md)).
 
 ```bash
 cd /opt/punchtape
-sudo ./host/update.sh      # pull, rebuild images, regenerate configs, restart
+sudo ./host/update.sh            # the newest release: check out, rebuild, restart
+sudo ./host/update.sh v0.9       # a particular release - and how to go back
+./host/update.sh --list          # the releases, and which one this Pi is on
+./host/update.sh --dry-run       # what it would do, without doing it
 ```
+
+Releases are tags; with no version named, the update takes the newest one rather than
+whatever was pushed to `main` last. `sudo ./host/update.sh main` follows the branch
+instead, for a bench Pi. An update that fails before it has applied anything puts the
+code back and leaves the running services alone, so the machines keep working.
+
+It regenerates the server configs and firewall from your settings and restarts the
+services (about a minute, so not while a machine is transferring). Settings, users,
+passwords and programs are kept; local edits to the code stop the update rather than
+being overwritten.
 
 The OS updates itself (unattended-upgrades). Run the update every month or two even
 without code changes, to pick up security fixes in the images. Samba is pinned to Debian Bookworm's 4.17
